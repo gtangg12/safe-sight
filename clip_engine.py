@@ -130,9 +130,9 @@ class Crop():
 class ImageSegmentationParams:
     distance_cost_multipler : float = 1.0
     num_samples_per_resolution : int = 50
-    select_crops_iters : int = 50
-    max_crop_size : float = 256
-    min_crop_size : float = 256
+    select_crops_iters : int = 200
+    max_crop_size : float = 512
+    min_crop_size : float = 512
     fidelity_threshold : float = 0.2
 
 
@@ -145,7 +145,7 @@ class ImageSegmentationModule(ClipBase):
         ret_crops = []
         for num_samples, factor in zip(num_pruned_per_resolution, scale_factors):
             im_scaled = self.scale(im, factor)
-            print(f'Generating crops for image size: {im_scaled.size}')
+            print(f'Generating crops for image size: {im_scaled.size}...')
             width, height = im_scaled.size
             if width < self.params.max_crop_size or height < self.params.max_crop_size:
                 break
@@ -155,13 +155,13 @@ class ImageSegmentationModule(ClipBase):
         return ret_crops
 
     def generate_crops(self, im: PImage) -> List[Crop]:
-        print('Generating Crops')
+        print('Generating Crops...')
 
         im_width, im_height = im.size
         crops = []
         for i in range(self.params.num_samples_per_resolution):
             half_width, half_height = \
-                random.randint(self.params.min_crop_size // 2, 
+                random.randint(self.params.min_crop_size // 2,   # image/scenes are wider than taller
                                self.params.max_crop_size // 2), \
                 random.randint(self.params.min_crop_size // 2, 
                                self.params.max_crop_size // 2)
@@ -181,7 +181,7 @@ class ImageSegmentationModule(ClipBase):
         return ret_crops
 
     def select_crops(self, crops: List[PImage], num_samples: int) -> List[Crop]:
-        print('Pruning Crops')
+        print('Pruning Crops...')
 
         def cost_fn(_crops) -> float:
             ''' Negative all pairs distance sum '''
@@ -210,9 +210,8 @@ class ImageSegmentationModule(ClipBase):
         embeddings /= embeddings.norm(dim=-1, keepdim=True)
 
         results = self.text_nn.search(embeddings.detach().cpu().numpy())
-        results = sorted(results, reverse=True)
         print(f'{len(results)} results: ')
-        print('\n'.join(map(str, results[:10])))
+        print('\n'.join(map(str, sorted(results, reverse=True)[:10])))
         print('...')
 
         for crop, (score, objects) in zip(crops, results):
@@ -227,42 +226,41 @@ class ImageSegmentationModule(ClipBase):
 
 
 class CaptionModule(ClipBase):
-    def __init__(self, path):
+    def __init__(self, path: str, originial_image_size: Tuple[int, int]):
         self.clip_caption_model = ImageCaptionInferenceModel.load(path).to(device)
+        self.originial_image_size = originial_image_size
 
     def __call__(self, crops: List[Crop], beam_size=1, relational=True):
-        caption = lambda crop : self.clip_caption_model(crop.im, beam_size=beam_size)
-        captions = list(map(caption, crops))
+        print('Generating captions...')
+
+        make_caption = lambda crop : self.clip_caption_model(crop.im, beam_size=beam_size).lower()
+        captions = list(map(make_caption, crops))
         if relational:
-            captions = [self.point_to_positional_desc(crop.center) + ' ' + caption 
-                for caption, crop in zip(captions, crops)]
+            captions = [self.point_to_positional_desc(crop.center) + ' ' + text.replace('laptop computer', 'iPad') # clip doesn't know what iPad is
+                for text, crop in zip(captions, crops)]
         return captions
 
-    POSITIONAL_DESC = itertools.product(['Top, Center, Bottom'], ['left', 'mid', 'right'])
+    POSITIONAL_DESC = list(itertools.product(['Top', 'Center', 'Bottom'], ['left', 'mid', 'right']))
 
-    def point_to_positional_desc(point: Tuple[int, int], image_size: Tuple[int, int]):
-        width, height = image_size
+    def point_to_positional_desc(self, point: Tuple[int, int]):
+        width, height = self.originial_image_size
         x, y = point
         x_quadrant = x // (width // 3)
         y_quadrant = y // (height // 3)
-        return POSITIONAL_DESC[y_quadrant * 3 + x_quadrant]
+        pos = self.POSITIONAL_DESC[y_quadrant * 3 + x_quadrant]
+        return str(pos[0]) + ' ' + pos[1]
 
 
 if __name__ == '__main__':
-    im = Image.open('data/test/0.png')
-    print(im.size)
+    im = Image.open('data/example/0.png')
     crops = ImageSegmentationModule()(
         im,
-        num_pruned_per_resolution=[10, 5, 2, 1],
-        scale_factors=[1, 0.75, 0.5, 0.25]
+        num_pruned_per_resolution=[5, 3, 1],
+        scale_factors=[1, 0.75, 0.5]
     )
-    for i, crop in enumerate(crops):
-        crop.im.save(f'data/example-scene/{i}.png')
-        print(crop.objects)
-        print(crop.fidelity_score)
-        print()
-    exit()
     captions = CaptionModule(
+        'models/clip_text_decoder.pt', im.size
+    )(
         crops,
         beam_size=3,
         relational=True
