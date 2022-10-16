@@ -252,18 +252,34 @@ class CaptionModule(ClipBase):
 
 
 if __name__ == '__main__':
-    im = Image.open('data/example/0.png')
-    crops = ImageSegmentationModule()(
-        im,
-        num_pruned_per_resolution=[5, 3, 1],
-        scale_factors=[1, 0.75, 0.5]
-    )
-    captions = CaptionModule(
-        'models/clip_text_decoder.pt', im.size
-    )(
-        crops,
-        beam_size=3,
-        relational=True
-    )
-    print(captions)
+    while True:
+        try:
+            im = Image.open('dock/input_frame.png')
+        except:
+            time.sleep(1)
+            continue
+
+        os.remove('dock/input_frame.png')
+
+        crops = ImageSegmentationModule()(
+            im,
+            num_pruned_per_resolution=[5, 3, 1],
+            scale_factors=[1, 0.75, 0.5]
+        )
+        captions = CaptionModule(
+            'models/clip_text_decoder.pt', im.size
+        )(
+            crops,
+            beam_size=3,
+            relational=True
+        )
+        captions = sorted(captions)
+
+        with open('dock/output.txt') as fout:
+            for caption in captions:
+                fout.write(caption + '.\n')
+
+        print(captions)
+
+
 
