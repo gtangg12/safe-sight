@@ -267,8 +267,8 @@ if __name__ == '__main__':
 
         crops = ImageSegmentationModule()(
             im,
-            num_pruned_per_resolution=[10, 5, 2],
-            scale_factors=[1, 0.75, 0.5]
+            num_pruned_per_resolution=[3, 1],
+            scale_factors=[0.75, 0.5]
         )
         captions = CaptionModule(
             'models/clip_text_decoder.pt', im.size
@@ -289,7 +289,7 @@ if __name__ == '__main__':
         print('Waiting for next image...')
 
         time.sleep(10)
-        os.remove('dock/output.txt')
+        #os.remove('dock/output.txt')
 
 
 
