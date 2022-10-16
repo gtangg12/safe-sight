@@ -1,4 +1,6 @@
 import os
+from typing import List
+
 import ffmpeg
 from pydub import AudioSegment
 import math
@@ -40,7 +42,6 @@ def synthesize_text_chinese(text: str, output_string: str):
     # The response's audio_content is binary.
     with open(output_string, "wb") as out:
         out.write(response.audio_content)
-        print('Audio content written to file "output.mp3"')
 
 def synthesize_text_english(text: str, output_file_name: str):
     '''
@@ -71,7 +72,6 @@ def synthesize_text_english(text: str, output_file_name: str):
     # The response's audio_content is binary.
     with open(output_file_name, "wb") as out:
         out.write(response.audio_content)
-        print('Audio content written to file "output.mp3"')
 
 def gen_silence():
     '''
@@ -90,7 +90,7 @@ def synthesize_text(texts: List[str], audio_dir: str):
     and return the combined audio
     '''
     prev = None
-    os.makedirs(f'ignore') # temporary folder to store previous text snippets
+    os.makedirs(f'ignore', exist_ok=True) # temporary folder to store previous text snippets
     for text in texts: # iterate through text array and add append text snippets back to back
         synthesize_text_english(text, "ignore/output1.mp3") 
 

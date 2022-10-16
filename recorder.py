@@ -1,5 +1,6 @@
 import os
 import time
+import subprocess
 import argparse
 import multiprocessing
 
@@ -14,7 +15,7 @@ def parse_args():
 
     parser.add_argument('-o', '--output_path', default='dock', type=str,
         help='')
-    parser.add_argument('-n', '--num_frames', default=30, type=int,
+    parser.add_argument('-n', '--num_frames', default=1500, type=int,
         help='')
     parser.add_argument('--fps', default=30, type=int,
         help='')
@@ -33,30 +34,43 @@ def main():
     print("Camera dimensions: {}x{}".format(height, width))
 
     start = time.time()
+    frames = []
     while True:
         success, frame = video_cap.read()
         if not success or len(frames) > args.num_frames - 1:
             break
-        
+        frames.append(frame)
+        cv2.imshow('Frame', frame)
         if (cv2.waitKey(1) & 0xFF) == ord('q'):
+            print('Sending frame to server to process...')
+
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame = Image.fromarray(frame)
             frame.save('dock/input_frame.png')
 
             time.sleep(2)
-            os.system('scp dock/input_frame.png gtang@txe1-login.mit.edu:/home/gridsan/gtang/safe-sight-dock')
+            os.system('scp dock/input_frame.png gtang@txe1-login.mit.edu:/home/gridsan/gtang/safe-sight/dock')
             time.sleep(2)
             os.remove('dock/input_frame.png')
-            time.sleep(10)
-            os.system('scp gtang@txe1-login.mit.edu:/home/gridsan/gtang/safe-sight-dock dock/output.txt')
+
+            print('Waiting on server processing...')
+
+            time.sleep(20)
+            os.system('scp gtang@txe1-login.mit.edu:/home/gridsan/gtang/safe-sight/dock/output.txt dock/output.txt')
             time.sleep(2)
 
-            with open('dock/output.txt') as fin:
-                texts = fin.read().split('\n')
+            print('Received output from server. Generating audio...')
+
+            with open('dock/output.txt', 'r') as fin:
+                texts = fin.read().split('\n')[:-1]
+                print(texts)
                 synthesize_text(texts, 'dock')
-                os.startfile('dock/result.mp3')
+                return_code = subprocess.call(["afplay", 'dock/result.mp3'])
+
+            print('Ready for next query...')
 
             os.remove('dock/output.txt')
+            os.remove('dock/result.mp3')
             time.sleep(10)
 
     video_cap.release()
