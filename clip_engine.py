@@ -1,3 +1,5 @@
+import os
+import time
 import random
 import itertools
 from typing import List, Tuple
@@ -129,8 +131,8 @@ class Crop():
 @dataclass
 class ImageSegmentationParams:
     distance_cost_multipler : float = 1.0
-    num_samples_per_resolution : int = 50
-    select_crops_iters : int = 200
+    num_samples_per_resolution : int = 25
+    select_crops_iters : int = 300
     max_crop_size : float = 512
     min_crop_size : float = 512
     fidelity_threshold : float = 0.2
@@ -248,13 +250,15 @@ class CaptionModule(ClipBase):
         x_quadrant = x // (width // 3)
         y_quadrant = y // (height // 3)
         pos = self.POSITIONAL_DESC[y_quadrant * 3 + x_quadrant]
-        return str(pos[0]) + ' ' + pos[1]
+        return str(pos[0]) + ' ' + pos[1] + ' there is '
 
 
 if __name__ == '__main__':
+    print('Running clip engine...')
     while True:
         try:
             im = Image.open('dock/input_frame.png')
+            print('Processing image')
         except:
             time.sleep(1)
             continue
@@ -263,7 +267,7 @@ if __name__ == '__main__':
 
         crops = ImageSegmentationModule()(
             im,
-            num_pruned_per_resolution=[5, 3, 1],
+            num_pruned_per_resolution=[10, 5, 2],
             scale_factors=[1, 0.75, 0.5]
         )
         captions = CaptionModule(
@@ -274,12 +278,18 @@ if __name__ == '__main__':
             relational=True
         )
         captions = sorted(captions)
+        captions = [c.strip('.').replace('  ', ' ') for c in captions]
+        captions = list(set(captions))
 
-        with open('dock/output.txt') as fout:
+        with open('dock/output.txt', 'w') as fout:
             for caption in captions:
-                fout.write(caption + '.\n')
+                fout.write(caption + '\n')
 
         print(captions)
+        print('Waiting for next image...')
+
+        time.sleep(10)
+        os.remove('dock/output.txt')
 
 
 
