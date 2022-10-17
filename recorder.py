@@ -15,7 +15,7 @@ def parse_args():
 
     parser.add_argument('-o', '--output_path', default='dock', type=str,
         help='')
-    parser.add_argument('-n', '--num_frames', default=1500, type=int,
+    parser.add_argument('-n', '--num_frames', default=15000, type=int,
         help='')
     parser.add_argument('--fps', default=30, type=int,
         help='')
@@ -33,14 +33,14 @@ def main():
         cap_prop(cv2.CAP_PROP_FRAME_WIDTH), cap_prop(cv2.CAP_PROP_FRAME_HEIGHT)
     print("Camera dimensions: {}x{}".format(height, width))
 
+    count = 0
     start = time.time()
-    frames = []
     while True:
         success, frame = video_cap.read()
-        if not success or len(frames) > args.num_frames - 1:
+        if not success or count > args.num_frames - 1:
             break
-        frames.append(frame)
         cv2.imshow('Frame', frame)
+        count += 1
         if (cv2.waitKey(1) & 0xFF) == ord('q'):
             print('Sending frame to server to process...')
 
