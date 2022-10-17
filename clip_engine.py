@@ -26,7 +26,7 @@ class ClipBase:
 
 def load_corpus() -> List[str]:
     paths = [
-        'data/ngrams/1grams_english.csv',
+        'data/ngrams/nouns.txt',
         'data/ngrams/supplemental.txt', # google ngrams missing some words
     ]
     
@@ -238,7 +238,7 @@ class CaptionModule(ClipBase):
         make_caption = lambda crop : self.clip_caption_model(crop.im, beam_size=beam_size).lower()
         captions = list(map(make_caption, crops))
         if relational:
-            captions = [self.point_to_positional_desc(crop.center) + ' ' + text.replace('laptop computer', 'iPad') # clip doesn't know what iPad is
+            captions = [self.point_to_positional_desc(crop.center) + ' ' + ', '.join(crop.objects[:4]) + '. And ' + text # clip doesn't know what iPad is
                 for text, crop in zip(captions, crops)]
         return captions
 
@@ -262,14 +262,16 @@ if __name__ == '__main__':
         except:
             time.sleep(1)
             continue
-
+        
+        time.sleep(2)
         os.remove('dock/input_frame.png')
 
         crops = ImageSegmentationModule()(
             im,
-            num_pruned_per_resolution=[3, 1],
-            scale_factors=[0.75, 0.5]
+            num_pruned_per_resolution=[2, 1],
+            scale_factors=[0.625, 0.5]
         )
+        print(len(crops))
         captions = CaptionModule(
             'models/clip_text_decoder.pt', im.size
         )(
@@ -281,15 +283,15 @@ if __name__ == '__main__':
         captions = [c.strip('.').replace('  ', ' ') for c in captions]
         captions = list(set(captions))
 
+        print(captions)
+
         with open('dock/output.txt', 'w') as fout:
             for caption in captions:
                 fout.write(caption + '\n')
 
-        print(captions)
-        print('Waiting for next image...')
-
         time.sleep(10)
-        #os.remove('dock/output.txt')
+        print('Waiting for next image...')
+       #os.remove('dock/output.txt')
 
 
 
